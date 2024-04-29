@@ -1,10 +1,11 @@
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from sklearn.cluster import DBSCAN
 from sklearn.cluster._hdbscan import hdbscan
 from sklearn.preprocessing import StandardScaler
-from numba import prange, njit
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
+from scipy import ndimage
 
 
 class ImageSegmentation:
@@ -22,23 +23,23 @@ class ImageSegmentation:
         self.CIE_Lab_image = image_lab
 
     @staticmethod
-    def create_one_plot(plot, num_image: int, image: np.ndarray, title: str):
+    def __create_one_plot(plot, num_image: int, image: np.ndarray, title: str):
         plot.subplot(1, 3, num_image)
         plot.imshow(image)
         # plot.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         plot.title(title)
         plot.axis('off')
 
-    def create_plot_images(self, original_image, image_segmented_rgb, image_segmented_lab, method_name="Segmentation",
-                           title1='Original image', title2='RGB Segmented', title3='Lab Segmented'):
+    def __create_plot_images(self, original_image, image_segmented_rgb, image_segmented_lab, method_name="Segmentation",
+                             title1='Original image', title2='RGB Segmented', title3='Lab Segmented'):
         plt.figure(figsize=(12, 4))
 
         # Первое изображение
-        self.create_one_plot(plt, 1, original_image, title1)
+        self.__create_one_plot(plt, 1, original_image, title1)
         # Второе изображение
-        self.create_one_plot(plt, 2, image_segmented_rgb, title2)
+        self.__create_one_plot(plt, 2, image_segmented_rgb, title2)
         # Третье изображение
-        self.create_one_plot(plt, 3, image_segmented_lab, title3)
+        self.__create_one_plot(plt, 3, image_segmented_lab, title3)
 
         plt.suptitle(method_name)
         plt.tight_layout()
@@ -51,8 +52,8 @@ class ImageSegmentation:
         segmented_image_rgb = method(image, kwargs)
         segmented_image_lab = method(image_lab, kwargs)
 
-        self.create_plot_images(image, segmented_image_rgb, segmented_image_lab, method_name=kwargs["method_name"],
-                                title1=kwargs["title1"], title2=kwargs["title2"], title3=kwargs["title3"])
+        self.__create_plot_images(image, segmented_image_rgb, segmented_image_lab, method_name=kwargs["method_name"],
+                                  title1=kwargs["title1"], title2=kwargs["title2"], title3=kwargs["title3"])
 
     @staticmethod
     def segment_image_kmeans(image: np.ndarray, kwargs: dict):
@@ -120,46 +121,61 @@ class ImageSegmentation:
         return segmented_image.astype(np.uint8)
 
     @staticmethod
-    def growing_seed_segmentation(image, kwargs):
-        # Определяем функцию проверки соседних пикселей
-        def check_neighbours(segmented_image, coordinate_current_seed, current_region_bright_mean,
-                             current_depth, max_depth=990):
-            if current_depth > max_depth:
-                return
-            # Получаем координаты семени и его значение
-            seed_x, seed_y = coordinate_current_seed
-            current_seed_value = image[seed_y, seed_x]  # Яркость.
+    def growing_seed_segmentation(image: np.ndarray, kwargs: dict):
+        seed_point, region_threshold = kwargs["seed_point"], kwargs["threshold"]
+        segmented_image = np.copy(image)
+        height, width = image.shape[:2]
+
+        stack = [seed_point]  # Используем стек для хранения пикселей, которые нужно проверить
+        visited = set()  # Множество для отслеживания уже посещенных пикселей
+
+        while stack:
+            current_seed = stack.pop()  # Берем текущий пиксель из стека
+            seed_x, seed_y = current_seed
+            current_seed_value = image[seed_y, seed_x]
+
+            # Проверяем, был ли этот пиксель уже посещен
+            if current_seed in visited:
+                continue
+
+            # Добавляем текущий пиксель в посещенные
+            visited.add(current_seed)
+
+            # Обновляем значение сегментированного изображения
+            segmented_image[seed_y, seed_x] = [0, 0, 0]
 
             # Определяем соседние пиксели
-            neighbours = [(seed_x + 1, seed_y), (seed_x - 1, seed_y), (seed_x, seed_y + 1), (seed_x, seed_y - 1)]
-            # neighbours = [(seed_x + 1, seed_y), (seed_x - 1, seed_y), (seed_x, seed_y + 1), (seed_x, seed_y - 1),
-            #               (seed_x + 1, seed_y + 1), (seed_x - 1, seed_y - 1),
-            #               (seed_x + 1, seed_y - 1), (seed_x - 1, seed_y + 1)]
+            neighbours = [(seed_x + 1, seed_y), (seed_x - 1, seed_y), (seed_x, seed_y + 1), (seed_x, seed_y - 1),
+                          (seed_x + 1, seed_y + 1), (seed_x + 1, seed_y - 1),
+                          (seed_x - 1, seed_y - 1), (seed_x - 1, seed_y + 1)]
 
             # Перебираем соседние пиксели
-            for i in range(len(neighbours)):
-                neighbour_x, neighbour_y = neighbours[i]
+            for neighbour_x, neighbour_y in neighbours:
                 # Проверяем, находится ли соседний пиксель в пределах изображения
                 if 0 <= neighbour_x < width and 0 <= neighbour_y < height:
                     neighbour_value = image[neighbour_y, neighbour_x]
 
-                    # Если значение соседнего пикселя находится в пределах порогового значения, добавляем его к региону
-                    if np.sum(np.abs(neighbour_value - current_region_bright_mean)) < region_threshold * 3:
-                        segmented_image[neighbour_y, neighbour_x] = current_seed_value
-                        # Обновляем среднее значение региона для текущего пикселя
+                    # Проверяем, был ли соседний пиксель уже посещен
+                    if (neighbour_x, neighbour_y) in visited:
+                        continue
 
-                        # current_region_bright_mean = np.mean([current_region_bright_mean, neighbour_value])
-                        check_neighbours(segmented_image, (neighbour_x, neighbour_y),
-                                         current_region_bright_mean, current_depth + 1)
+                    # Если значение соседнего пикселя находится в пределах порогового значения, добавляем его в стек
+                    # print(np.sum(np.abs(neighbour_value - current_seed_value)))
+                    if np.sum(np.abs(neighbour_value - current_seed_value)) < region_threshold * 3:
+                        stack.append((neighbour_x, neighbour_y))
 
-        seed_point, region_threshold = kwargs["seed_point"], kwargs["threshold"]
-        # Копируем исходное изображение для работы
-        segmented_image = np.zeros(image.shape)
-
-        # Получаем размеры изображения
-        height, width = image.shape[:2]
-        # Выполняем выращивание семян для сегментации
-        # ПРОГРАММА ПАДАЕТ С ОШИБКОЙ МАКСИМАЛЬНАЯ ГЛУБИНА РЕКУРСИВНОСТИ
-        check_neighbours(segmented_image, seed_point, image[seed_point[1], seed_point[0]], 0)
-        # segmented_image = np.int(segmented_image)
         return segmented_image.astype(np.uint8)
+
+    @staticmethod
+    def watershed_segmentation(image: np.ndarray, kwargs: dict):
+        # Вычисляем градиент изображения
+        gradient = ndimage.morphological_gradient(image, size=(3, 3))
+
+        # Находим локальные максимумы градиента
+        local_maxi = peak_local_max(gradient, indices=False, footprint=np.ones((3, 3)), labels=image)
+
+        # Применяем метод водораздела
+        markers = ndimage.label(local_maxi)[0]
+        segmented_image = watershed(-gradient, markers, mask=image)
+
+        return segmented_image

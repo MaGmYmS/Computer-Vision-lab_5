@@ -12,13 +12,13 @@ color = (image_segmentation.RGB_image[200, 200], 200, 200)
 #                                          method_name="Метод k-means", title1="Оригинальное изображение",
 #                                          title2="К-средних RGB", title3="К-средних CIE Lab")
 
-min_samples = 150
-image_segmentation.compare_segmentations(image_segmentation.segment_image_dbscan,
-                                         min_samples=min_samples, target_color=color,
-                                         method_name="Метод DBSCAN", title1="Оригинальное изображение",
-                                         title2="DBSCAN RGB", title3="DBSCAN CIE Lab")
+# min_samples = 150
+# image_segmentation.compare_segmentations(image_segmentation.segment_image_dbscan,
+#                                          min_samples=min_samples, target_color=color,
+#                                          method_name="Метод DBSCAN", title1="Оригинальное изображение",
+#                                          title2="DBSCAN RGB", title3="DBSCAN CIE Lab")
 
-# seed_point, threshold = (100, 100), 5
+# seed_point, threshold = (100, 100), 170
 # image_segmentation.compare_segmentations(image_segmentation.growing_seed_segmentation,
 #                                          seed_point=seed_point, threshold=threshold,
 #                                          method_name="Метод Region growing", title1="Оригинальное изображение",
