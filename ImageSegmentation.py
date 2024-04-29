@@ -57,6 +57,7 @@ class ImageSegmentation:
     @staticmethod
     def segment_image_kmeans(image: np.ndarray, kwargs: dict):
         num_clusters = kwargs["num_clusters"]
+
         image_np = np.array(image)
         # Преобразуем изображение в одномерный массив
         image_reshaped = image_np.reshape((-1, 3)).astype(np.float32)
@@ -68,10 +69,20 @@ class ImageSegmentation:
         _, labels, centers = (cv2.kmeans(data=image_reshaped, K=num_clusters, bestLabels=None,
                                          criteria=criteria, attempts=10, flags=cv2.KMEANS_RANDOM_CENTERS))
 
-        # Восстановление сегментированного изображения
-        segmented_image_rgb = np.zeros_like(image_reshaped)
-        for i in range(len(labels)):
-            segmented_image_rgb[i] = centers[labels[i]]
+        if "target_color" in kwargs.keys():
+            target_color = kwargs["target_color"]
+            # Найдем индекс центра кластера, наиболее близкого к целевому цвету
+            target_center_index = np.argmin(np.linalg.norm(centers - target_color, axis=1))
+            # Создаем сегментированное изображение, используя только выбранный центр кластера
+            segmented_image_rgb = np.zeros_like(image_reshaped)
+            for i in range(len(labels)):
+                if labels[i] == target_center_index:
+                    segmented_image_rgb[i] = centers[labels[i]]
+        else:
+            # Создаем сегментированное изображение, используя только выбранный центр кластера
+            segmented_image_rgb = np.zeros_like(image_reshaped)
+            for i in range(len(labels)):
+                segmented_image_rgb[i] = centers[labels[i]]
 
         # Преобразуем метки кластеров обратно в форму изображения
         segmented_image_rgb = segmented_image_rgb.reshape(image_np.shape)
