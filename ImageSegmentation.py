@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.cluster import DBSCAN
+from sklearn.cluster._hdbscan import hdbscan
 from sklearn.preprocessing import StandardScaler
 from numba import prange, njit
 
@@ -79,59 +80,60 @@ class ImageSegmentation:
 
     @staticmethod
     def segment_image_dbscan(image: np.ndarray, kwargs: dict):
-        eps, min_samples = kwargs["eps"], kwargs["min_samples"]
+        min_samples = kwargs["min_samples"]
         image_np = np.array(image)
         image_reshaped = image_np.reshape((-1, 3)).astype(float)
 
         scaler = StandardScaler()
         image_scaled = scaler.fit_transform(image_reshaped)
 
-        dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-        dbscan.fit(image_scaled)
+        dbscan_rgb = hdbscan.HDBSCAN(min_cluster_size=min_samples)
+        labels = dbscan_rgb.fit_predict(image_scaled)
 
-        labels = dbscan.labels_
         segmented_image = labels.reshape(image_np.shape[0], image_np.shape[1])
-        return segmented_image
+        return segmented_image.astype(np.uint8)
 
     @staticmethod
-    def region_growing_segmentation(image, kwargs):
-        seed_point, threshold = kwargs["seed_point"], kwargs["threshold"]
-        # Копируем исходное изображение для работы
-        segmented_image = np.copy(image)
-
-        # Определяем начальное семя для выращивания
-        seed = seed_point
-
-        # Определяем пороговое значение для роста региона
-        region_threshold = threshold
-
-        # Получаем размеры изображения
-        height, width = image.shape[:2]
-
+    def growing_seed_segmentation(image, kwargs):
         # Определяем функцию проверки соседних пикселей
-        def check_neighbours(current_seed, current_region_mean):
+        def check_neighbours(segmented_image, coordinate_current_seed, current_region_bright_mean,
+                             current_depth, max_depth=990):
+            if current_depth > max_depth:
+                return
             # Получаем координаты семени и его значение
-            seed_x, seed_y = current_seed
-            seed_value = segmented_image[seed_y, seed_x]
+            seed_x, seed_y = coordinate_current_seed
+            current_seed_value = image[seed_y, seed_x]  # Яркость.
 
             # Определяем соседние пиксели
             neighbours = [(seed_x + 1, seed_y), (seed_x - 1, seed_y), (seed_x, seed_y + 1), (seed_x, seed_y - 1)]
+            # neighbours = [(seed_x + 1, seed_y), (seed_x - 1, seed_y), (seed_x, seed_y + 1), (seed_x, seed_y - 1),
+            #               (seed_x + 1, seed_y + 1), (seed_x - 1, seed_y - 1),
+            #               (seed_x + 1, seed_y - 1), (seed_x - 1, seed_y + 1)]
 
             # Перебираем соседние пиксели
-            for neighbour_x, neighbour_y in neighbours:
+            for i in range(len(neighbours)):
+                neighbour_x, neighbour_y = neighbours[i]
                 # Проверяем, находится ли соседний пиксель в пределах изображения
                 if 0 <= neighbour_x < width and 0 <= neighbour_y < height:
-                    neighbour_value = segmented_image[neighbour_y, neighbour_x]
+                    neighbour_value = image[neighbour_y, neighbour_x]
 
                     # Если значение соседнего пикселя находится в пределах порогового значения, добавляем его к региону
-                    if np.sum(np.abs(neighbour_value - current_region_mean)) < region_threshold * 3:
-                        segmented_image[neighbour_y, neighbour_x] = seed_value
+                    if np.sum(np.abs(neighbour_value - current_region_bright_mean)) < region_threshold * 3:
+                        segmented_image[neighbour_y, neighbour_x] = current_seed_value
                         # Обновляем среднее значение региона для текущего пикселя
-                        current_region_mean = (current_region_mean + neighbour_value) / 2
-                        check_neighbours((neighbour_x, neighbour_y), current_region_mean)
 
+                        # current_region_bright_mean = np.mean([current_region_bright_mean, neighbour_value])
+                        check_neighbours(segmented_image, (neighbour_x, neighbour_y),
+                                         current_region_bright_mean, current_depth + 1)
+
+        seed_point, region_threshold = kwargs["seed_point"], kwargs["threshold"]
+        # Копируем исходное изображение для работы
+        segmented_image = np.zeros(image.shape)
+
+        # Получаем размеры изображения
+        height, width = image.shape[:2]
         # Выполняем выращивание семян для сегментации
-        check_neighbours(seed, image[seed[1], seed[0]])
-
-        return segmented_image
-
+        # ПРОГРАММА ПАДАЕТ С ОШИБКОЙ МАКСИМАЛЬНАЯ ГЛУБИНА РЕКУРСИВНОСТИ
+        check_neighbours(segmented_image, seed_point, image[seed_point[1], seed_point[0]], 0)
+        # segmented_image = np.int(segmented_image)
+        return segmented_image.astype(np.uint8)
