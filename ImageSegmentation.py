@@ -70,7 +70,7 @@ class ImageSegmentation:
                                          criteria=criteria, attempts=10, flags=cv2.KMEANS_RANDOM_CENTERS))
 
         if "target_color" in kwargs.keys():
-            target_color = kwargs["target_color"]
+            target_color = kwargs["target_color"][0]
             # Найдем индекс центра кластера, наиболее близкого к целевому цвету
             target_center_index = np.argmin(np.linalg.norm(centers - target_color, axis=1))
             # Создаем сегментированное изображение, используя только выбранный центр кластера
@@ -98,10 +98,25 @@ class ImageSegmentation:
         scaler = StandardScaler()
         image_scaled = scaler.fit_transform(image_reshaped)
 
-        dbscan_rgb = hdbscan.HDBSCAN(min_cluster_size=min_samples)
-        labels = dbscan_rgb.fit_predict(image_scaled)
+        dbscan = hdbscan.HDBSCAN(min_cluster_size=min_samples)
+        labels = dbscan.fit_predict(image_scaled)
 
-        segmented_image = labels.reshape(image_np.shape[0], image_np.shape[1])
+        if "target_color" in kwargs.keys():
+            target_color, x_target_color, y_target_color = kwargs["target_color"]
+            # Находим индекс кластера, наиболее близкого к целевому цвету
+            # centers = np.array([np.mean(image_scaled[labels == i], axis=0) for i in range(len(set(labels)))])
+            target_cluster_index = labels[x_target_color * y_target_color]
+            # Создаем сегментированное изображение, используя только пиксели из выбранного кластера
+            segmented_image = np.zeros_like(labels)
+            for i in range(len(labels)):
+                if labels[i] == target_cluster_index:
+                    segmented_image[i] = labels[i]
+        else:
+            segmented_image = labels
+
+        # Преобразуем метки кластеров обратно в форму изображения
+        segmented_image = segmented_image.reshape(image_np.shape[0], image_np.shape[1])
+
         return segmented_image.astype(np.uint8)
 
     @staticmethod
