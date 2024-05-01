@@ -6,6 +6,8 @@ from sklearn.preprocessing import StandardScaler
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 from scipy import ndimage
+from skimage.segmentation import flood
+from tqdm import tqdm
 
 
 class ImageSegmentation:
@@ -145,7 +147,8 @@ class ImageSegmentation:
             segmented_image[seed_y, seed_x] = [0, 0, 0]
 
             # Определяем соседние пиксели
-            neighbours = [(seed_x + 1, seed_y), (seed_x - 1, seed_y), (seed_x, seed_y + 1), (seed_x, seed_y - 1),
+            neighbours = [(seed_x + 1, seed_y), (seed_x - 1, seed_y),
+                          (seed_x, seed_y + 1), (seed_x, seed_y - 1),
                           (seed_x + 1, seed_y + 1), (seed_x + 1, seed_y - 1),
                           (seed_x - 1, seed_y - 1), (seed_x - 1, seed_y + 1)]
 
@@ -167,12 +170,77 @@ class ImageSegmentation:
         return segmented_image.astype(np.uint8)
 
     @staticmethod
+    def region_growing(image: np.ndarray, kwargs: dict):
+        threshold = kwargs.get("threshold", 10)
+
+        # Преобразуем изображение в оттенки серого
+        gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
+        # Создаем пустое изображение для хранения сегментированной области
+        segmented_image = np.zeros_like(gray_image)
+        height, width = gray_image.shape
+
+        # Инициализируем массив для отслеживания принадлежности пикселей к регионам
+        region_membership = np.zeros_like(gray_image)
+
+        # Создаем список для хранения областей (регионов)
+        regions = []
+
+        # Перебираем каждый пиксель изображения
+        for y in tqdm(range(height)):
+            for x in range(width):
+                # Если пиксель уже относится к какому-то региону, пропускаем его
+                if region_membership[y, x] != 0:
+                    continue
+                if len(regions) == 0:
+                    new_region = [(x, y)]
+                    regions.append(new_region)
+                    continue
+                # Получаем яркость текущего пикселя
+                pixel_intensity = gray_image[y, x]
+                intensity_regions = [[gray_image[j, i] for i, j in region] for region in regions]
+                avg_regions = [np.mean(intensity_region) for intensity_region in intensity_regions]
+                if (abs(avg_regions - pixel_intensity) > threshold).all():  # Если разность интенсивности и всех
+                    # регионов больше границы, то создаем новый регион и добавляем в него текущий пиксель.
+                    new_region = [(x, y)]
+                    regions.append(new_region)
+                    region_membership[y, x] = len(regions) + 1
+                elif (abs(pixel_intensity - avg_regions) <= threshold).any():  # Если разность интенсивности и хотя бы
+                    # одного региона меньше или равно границы, то создаем новый регион и
+                    # добавляем в него текущий пиксель.
+                    new_region = [(x, y)]
+                    regions.append(new_region)
+                    region_membership[y, x] = len(regions) + 1
+                else:
+                    for i in range(len(regions)):
+                        for j in range(len(regions)):
+                            avg_region_i = np.mean([gray_image[x_coord, y_coord] for x_coord, y_coord in regions[i]])
+                            avg_region_j = np.mean([gray_image[x_coord, y_coord] for x_coord, y_coord in regions[j]])
+                            if abs(avg_region_i - avg_region_j <= threshold):
+                                # Если разность средних яркостей двух областей меньше порога, области сливаем воедино
+                                regions[i] = regions[i] + regions[j]
+                                regions.remove(regions[j])
+                            else:
+                                # Иначе добавляем пиксель А к региону с наименьшим отклонением
+                                if abs(avg_region_i - pixel_intensity) > abs(avg_region_j - pixel_intensity):
+                                    regions[j].append((x, y))
+                                else:
+                                    regions[i].append((x, y))
+
+            # Заполняем сегментированное изображение в соответствии с регионами
+        for region_id, region in enumerate(regions):
+            for x, y in region:
+                segmented_image[y, x] = region_id + 1
+
+        return segmented_image
+
+    @staticmethod
     def watershed_segmentation(image: np.ndarray, kwargs: dict):
         # Вычисляем градиент изображения
-        gradient = ndimage.morphological_gradient(image, size=(3, 3))
+        gradient = ndimage.morphological_gradient(image, size=3)
 
         # Находим локальные максимумы градиента
-        local_maxi = peak_local_max(gradient, indices=False, footprint=np.ones((3, 3)), labels=image)
+        local_maxi = peak_local_max(gradient, labels=image)
 
         # Применяем метод водораздела
         markers = ndimage.label(local_maxi)[0]
