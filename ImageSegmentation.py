@@ -1,14 +1,10 @@
+import time
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.cluster._hdbscan import hdbscan
 from sklearn.preprocessing import StandardScaler
-from skimage.segmentation import watershed
-from skimage.feature import peak_local_max
-from scipy import ndimage
-from skimage.segmentation import flood
 from tqdm import tqdm
-from numba import prange, njit
 
 
 class ImageSegmentation:
@@ -52,8 +48,15 @@ class ImageSegmentation:
         image = self.RGB_image
         image_lab = self.CIE_Lab_image
 
+        start_time = time.time()
         segmented_image_rgb = method(image, kwargs)
+        end_time = time.time() - start_time
+        print(kwargs["title2"], "отработал за", round(end_time / 60, 2))
+
+        start_time = time.time()
         segmented_image_lab = method(image_lab, kwargs)
+        end_time = time.time() - start_time
+        print(kwargs["title3"], "отработал за", round(end_time / 60, 2))
 
         self.__create_plot_images(image, segmented_image_rgb, segmented_image_lab, method_name=kwargs["method_name"],
                                   title1=kwargs["title1"], title2=kwargs["title2"], title3=kwargs["title3"])
@@ -172,12 +175,12 @@ class ImageSegmentation:
 
     def region_growing(self, image: np.ndarray, kwargs: dict):
         threshold = kwargs.get("threshold", 10)
+        color = kwargs.get("color", None)
         # Преобразуем изображение в оттенки серого
         gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        return self.__region_growing(gray_image, threshold)
+        return self.__region_growing(gray_image, threshold, color)
 
     @staticmethod
-    # @njit(parallel=True)
     def __mean(array):
         sum_elements = 0
         for elem in array:
@@ -220,20 +223,22 @@ class ImageSegmentation:
         avg_regions = [self.__mean(intensity_region) for intensity_region in intensity_regions_inner]
         return avg_regions
 
-    def __region_growing(self, gray_image: np.ndarray, threshold: int):
+    def __region_growing(self, gray_image: np.ndarray, threshold: int, color_coordinate: (int, int) = None):
         # Создаем пустое изображение для хранения сегментированной области
         segmented_image = np.zeros_like(gray_image)
         height, width = gray_image.shape
 
         # Создаем список для хранения областей (регионов)
-        regions = []
+        if color_coordinate is not None:
+            regions = [[color_coordinate]]
+        else:
+            color_coordinate = (0, 0)
+            regions = [[color_coordinate]]
 
         # Перебираем каждый пиксель изображения
-        for y in tqdm(range(height), desc=f"Region growing"):
+        for y in tqdm(range(height), desc="Region growing"):
             for x in range(width):
-                if len(regions) == 0:
-                    new_region = [(x, y)]
-                    regions.append(new_region)
+                if (x, y) == color_coordinate:
                     continue
                 # Получаем яркость текущего пикселя
                 pixel_intensity = gray_image[y, x]
@@ -252,7 +257,6 @@ class ImageSegmentation:
                     count_while_true = 0  # Count чисто для проверки while true
                     while True:
                         count_while_true += 1
-                        # print(count_while_true)
                         merge_ri_rj = self.__check_merge_region(gray_image, regions, threshold)
                         if len(merge_ri_rj) == 0:
                             break
