@@ -174,7 +174,7 @@ class ImageSegmentation:
         threshold = kwargs.get("threshold", 10)
         # Преобразуем изображение в оттенки серого
         gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        self.__region_growing(gray_image, threshold)
+        return self.__region_growing(gray_image, threshold)
 
     @staticmethod
     # @njit(parallel=True)
@@ -184,40 +184,52 @@ class ImageSegmentation:
             sum_elements += elem
         return sum_elements / len(array)
 
+    def __check_merge_region(self, gray_image, regions, threshold):
+        # Проверка, нужно ли сливать два региона воедино
+        avg_regions = self.__calculate_average_regions(gray_image, regions)
+        merge_ri_rj = []
+        # TODO: Много лишних действий
+        for ri in range(len(regions)):
+            for rj in range(ri + 1, len(regions)):
+                if np.abs(avg_regions[ri] - avg_regions[rj]) <= threshold:
+                    merge_ri_rj.append((ri, rj))
+        return merge_ri_rj
+
     @staticmethod
-    # TODO: Мердж работает не верно, нужно сливать воедино все all_rj_indexes в один регион
-    def __merge_region(indexes_merge_regions, avg_regions, regions):
-        for (ri, _) in indexes_merge_regions:
-            all_rj_indexes = [tmp_rj for tmp_ri, tmp_rj in indexes_merge_regions if ri == tmp_ri]
-            new_merge_region = []
-            for rj in all_rj_indexes:
-                new_merge_region.append((ri, rj))
-                regions.remove((ri, rj))
-
-            regions.append(new_merge_region)
-
+    def __merge_region(indexes_merge_regions, regions):
+        (region_i, _) = indexes_merge_regions[0]  # Получаем индексы регионов для слияния
+        all_rj_indexes = [tmp_rj for tmp_ri, tmp_rj in indexes_merge_regions if region_i == tmp_ri]
+        new_merge_region = regions[region_i].copy()  # Создаем новый регион, в который будем все сливать
+        value_region_j_remove_array = []  # Это регионы, которые сольются в 1 большой и их нужно удалить из основного
+        # массива
+        for region_j in all_rj_indexes:  # Идем по циклу, добавляем регионы в массив для слияния и удаления
+            value_region_j = regions[region_j]
+            new_merge_region += value_region_j
+            value_region_j_remove_array.append(value_region_j)
+        # Удаляем регионы
+        regions.remove(regions[region_i])
+        for value_region_j_remove in value_region_j_remove_array:
+            regions.remove(value_region_j_remove)
+        # Добавляем результат в наш массив с регионами
+        regions.append(new_merge_region)
         return regions
 
     def __calculate_average_regions(self, gray_image, regions):
+        # Считаем среднюю яркость наших регионов
         intensity_regions_inner = [[gray_image[j, i] for i, j in region] for region in regions]
         avg_regions = [self.__mean(intensity_region) for intensity_region in intensity_regions_inner]
         return avg_regions
 
-    # @njit(parallel=True)
     def __region_growing(self, gray_image: np.ndarray, threshold: int):
         # Создаем пустое изображение для хранения сегментированной области
         segmented_image = np.zeros_like(gray_image)
         height, width = gray_image.shape
 
-        # Инициализируем массив для отслеживания принадлежности пикселей к регионам
-        region_membership = np.zeros_like(gray_image)
-
         # Создаем список для хранения областей (регионов)
         regions = []
 
         # Перебираем каждый пиксель изображения
-        for y in tqdm(range(height)):
-            print(len(regions))
+        for y in tqdm(range(height), desc=f"Region growing"):
             for x in range(width):
                 if len(regions) == 0:
                     new_region = [(x, y)]
@@ -227,33 +239,28 @@ class ImageSegmentation:
                 pixel_intensity = gray_image[y, x]
                 avg_regions = self.__calculate_average_regions(gray_image, regions)
                 if (np.abs(avg_regions - pixel_intensity) > threshold).all():  # Если разность интенсивности и всех
-                    print("One step")
                     # регионов больше границы, то создаем новый регион и добавляем в него текущий пиксель.
                     new_region = [(x, y)]
                     regions.append(new_region)
-                    region_membership[y, x] = len(regions) + 1
                 elif (np.abs(pixel_intensity - avg_regions) <= threshold).all():  # Если разность интенсивности и
-                    print("Two step")
                     # хотя бы одного региона меньше или равно границы, то создаем новый регион
                     # и добавляем в него текущий пиксель.
                     new_region = [(x, y)]
                     regions.append(new_region)
-                    region_membership[y, x] = len(regions) + 1
                 else:
-                    print("Three step")
                     # Сначала сливаем похожие регионы, затем добавляем пиксель к региону с наименьшим отклонением
-                    avg_regions = self.__calculate_average_regions(gray_image, regions)
-                    merge_ri_rj = []
-                    for ri in range(len(regions)):
-                        for rj in range(len(regions)):
-                            if ri == rj:
-                                continue
-                            if np.abs(avg_regions[ri] - avg_regions[rj] <= threshold):
-                                merge_ri_rj.append((ri, rj))
+                    count_while_true = 0  # Count чисто для проверки while true
+                    while True:
+                        count_while_true += 1
+                        # print(count_while_true)
+                        merge_ri_rj = self.__check_merge_region(gray_image, regions, threshold)
+                        if len(merge_ri_rj) == 0:
+                            break
+                        else:
+                            regions = self.__merge_region(merge_ri_rj, regions)
 
-                    regions = self.__merge_region(merge_ri_rj, avg_regions, regions)
+                    # Находим регион с минимальным отклонением и добавляем в него наш пиксель
                     avg_regions = self.__calculate_average_regions(gray_image, regions)
-
                     save_minimum_deviation_ri = -1
                     minimum_deviation = avg_regions[0]
                     for ri in range(len(regions)):
@@ -264,11 +271,12 @@ class ImageSegmentation:
                     regions[save_minimum_deviation_ri].append((x, y))
 
         # Заполняем сегментированное изображение в соответствии с регионами
+        print("Количество регионов:", len(regions))
         for region_id, region in enumerate(regions):
             for x, y in region:
                 segmented_image[y, x] = region_id + 1
 
-        return segmented_image
+        return segmented_image.astype(np.uint8)
 
     @staticmethod
     def watershed_segmentation(image: np.ndarray, kwargs: dict):

@@ -24,7 +24,7 @@ color = (image_segmentation.RGB_image[200, 200], 200, 200)
 #                                          method_name="Метод Growing seed", title1="Оригинальное изображение",
 #                                          title2="Growing seed RGB", title3="Growing seed CIE Lab")
 
-threshold = 20
+threshold = 10
 image_segmentation.compare_segmentations(image_segmentation.region_growing, threshold=threshold,
                                          method_name="Метод Region growing", title1="Оригинальное изображение",
                                          title2="Region growing RGB", title3="Region growing CIE Lab")
