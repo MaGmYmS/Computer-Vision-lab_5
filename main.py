@@ -24,11 +24,11 @@ color = (image_segmentation.RGB_image[200, 200], 200, 200)
 #                                          method_name="Метод Growing seed", title1="Оригинальное изображение",
 #                                          title2="Growing seed RGB", title3="Growing seed CIE Lab")
 
-threshold = 10
-image_segmentation.compare_segmentations(image_segmentation.region_growing, threshold=threshold,
-                                         method_name="Метод Region growing", title1="Оригинальное изображение",
-                                         title2="Region growing RGB", title3="Region growing CIE Lab")
+# threshold = 10
+# image_segmentation.compare_segmentations(image_segmentation.region_growing, threshold=threshold,
+#                                          method_name="Метод Region growing", title1="Оригинальное изображение",
+#                                          title2="Region growing RGB", title3="Region growing CIE Lab")
 
-# image_segmentation.compare_segmentations(image_segmentation.watershed_segmentation,
-#                                          method_name="Метод Water Shed", title1="Оригинальное изображение",
-#                                          title2="Water Shed RGB", title3="Water Shed CIE Lab")
+image_segmentation.compare_segmentations(image_segmentation.watershed_segmentation,
+                                         method_name="Метод Water Shed", title1="Оригинальное изображение",
+                                         title2="Water Shed RGB", title3="Water Shed CIE Lab")
