@@ -23,8 +23,10 @@ class MyMainWindow(QMainWindow):
         self.ui.graph_view_img.mousePressEvent = self.get_pixel_color
         # Добавляем строку для установки красного цвета по умолчанию
         self.drop_color_clicked()
-        self.image_segmentation = None
+        self.image_segmentation = ImageSegmentation("images/flower.jpg")
         self.selected_color = None
+        self.selected_coordinate = None
+        self.color = None
 
     def load_image(self):
         file_dialog = QFileDialog()
@@ -43,7 +45,7 @@ class MyMainWindow(QMainWindow):
             num_clusters = int(self.ui.dspinbox_k_means.value())
             self.image_segmentation.compare_segmentations(
                 self.image_segmentation.segment_image_kmeans,
-                num_clusters=num_clusters, target_color=self.selected_color,
+                num_clusters=num_clusters, target_color=self.color,
                 method_name="Метод k-means", title1="Оригинальное изображение",
                 title2="К-средних RGB", title3="К-средних CIE Lab"
             )
@@ -53,14 +55,18 @@ class MyMainWindow(QMainWindow):
             min_samples = int(self.ui.dspinbox_DBSCAN.value())
             self.image_segmentation.compare_segmentations(
                 self.image_segmentation.segment_image_dbscan,
-                min_samples=min_samples, target_color=self.selected_color,
+                min_samples=min_samples, target_color=self.color,
                 method_name="Метод DBSCAN", title1="Оригинальное изображение",
                 title2="DBSCAN RGB", title3="DBSCAN CIE Lab"
             )
 
     def segment_with_growing_seed(self):
         if self.image_segmentation:
-            seed_point = (int(self.ui.dspinbox_growing_seed.value()), int(self.ui.dspinbox_growing_seed.value()))
+            half_w, half_h, _ = self.image_segmentation.RGB_image.shape
+            half_w, half_h = half_w // 2, half_h // 2
+            seed_point = (half_w, half_h)
+            if self.color is not None:
+                seed_point = self.color[1:]
             threshold = int(self.ui.dspinbox_growing_seed.value())
             self.image_segmentation.compare_segmentations(
                 self.image_segmentation.growing_seed_segmentation,
@@ -95,7 +101,14 @@ class MyMainWindow(QMainWindow):
                     pixmap = item.pixmap()
                     if not pixmap.isNull():
                         pixel_color = pixmap.toImage().pixelColor(mapped_pos.toPoint())
+
+                        print("Mouse position:", int(mapped_pos.x()), int(mapped_pos.y()))
+
                         self.selected_color = (pixel_color.red(), pixel_color.green(), pixel_color.blue())
+                        self.selected_coordinate = [int(mapped_pos.x()), int(mapped_pos.y())]
+
+                        self.color = ((pixel_color.red(), pixel_color.green(), pixel_color.blue()), int(mapped_pos.x()),
+                                      int(mapped_pos.y()))
                         self.update_color_view(pixel_color)
 
     def update_color_view(self, color):
@@ -107,6 +120,8 @@ class MyMainWindow(QMainWindow):
 
     def drop_color_clicked(self):
         self.selected_color = None
+        self.selected_coordinate = None
+        self.selected_coordinate = None
         scene = QGraphicsScene()
         scene.addRect(0, 0, 50, 50, Qt.NoPen, QBrush(Qt.NoBrush))
         self.ui.graphicsView.setScene(scene)

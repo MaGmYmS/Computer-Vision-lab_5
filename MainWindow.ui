@@ -28,6 +28,9 @@
         <layout class="QGridLayout" name="gridLayout">
          <item row="3" column="1">
           <widget class="QDoubleSpinBox" name="dspinbox_region_growing">
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
+           </property>
            <property name="decimals">
             <number>0</number>
            </property>
@@ -41,6 +44,9 @@
          </item>
          <item row="0" column="1">
           <widget class="QDoubleSpinBox" name="dspinbox_k_means">
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
+           </property>
            <property name="decimals">
             <number>0</number>
            </property>
@@ -54,6 +60,9 @@
          </item>
          <item row="1" column="1">
           <widget class="QDoubleSpinBox" name="dspinbox_DBSCAN">
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
+           </property>
            <property name="decimals">
             <number>0</number>
            </property>
@@ -67,6 +76,9 @@
          </item>
          <item row="2" column="1">
           <widget class="QDoubleSpinBox" name="dspinbox_growing_seed">
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::ButtonSymbols::NoButtons</enum>
+           </property>
            <property name="decimals">
             <number>0</number>
            </property>
@@ -231,7 +243,7 @@
      <x>0</x>
      <y>0</y>
      <width>809</width>
-     <height>22</height>
+     <height>33</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu">

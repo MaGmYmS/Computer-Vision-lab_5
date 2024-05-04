@@ -16,10 +16,10 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QIcon, QImage, QKeySequence, QLinearGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
-from PySide6.QtWidgets import (QApplication, QDoubleSpinBox, QFrame, QGraphicsView,
-    QGridLayout, QHBoxLayout, QLabel, QMainWindow,
-    QMenu, QMenuBar, QPushButton, QSizePolicy,
-    QStatusBar, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractSpinBox, QApplication, QDoubleSpinBox, QFrame,
+    QGraphicsView, QGridLayout, QHBoxLayout, QLabel,
+    QMainWindow, QMenu, QMenuBar, QPushButton,
+    QSizePolicy, QStatusBar, QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -42,6 +42,7 @@ class Ui_MainWindow(object):
         self.gridLayout.setObjectName(u"gridLayout")
         self.dspinbox_region_growing = QDoubleSpinBox(self.frame)
         self.dspinbox_region_growing.setObjectName(u"dspinbox_region_growing")
+        self.dspinbox_region_growing.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.dspinbox_region_growing.setDecimals(0)
         self.dspinbox_region_growing.setMinimum(5.000000000000000)
         self.dspinbox_region_growing.setMaximum(100.000000000000000)
@@ -50,6 +51,7 @@ class Ui_MainWindow(object):
 
         self.dspinbox_k_means = QDoubleSpinBox(self.frame)
         self.dspinbox_k_means.setObjectName(u"dspinbox_k_means")
+        self.dspinbox_k_means.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.dspinbox_k_means.setDecimals(0)
         self.dspinbox_k_means.setMinimum(2.000000000000000)
         self.dspinbox_k_means.setMaximum(50.000000000000000)
@@ -58,6 +60,7 @@ class Ui_MainWindow(object):
 
         self.dspinbox_DBSCAN = QDoubleSpinBox(self.frame)
         self.dspinbox_DBSCAN.setObjectName(u"dspinbox_DBSCAN")
+        self.dspinbox_DBSCAN.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.dspinbox_DBSCAN.setDecimals(0)
         self.dspinbox_DBSCAN.setMinimum(50.000000000000000)
         self.dspinbox_DBSCAN.setMaximum(500.000000000000000)
@@ -66,6 +69,7 @@ class Ui_MainWindow(object):
 
         self.dspinbox_growing_seed = QDoubleSpinBox(self.frame)
         self.dspinbox_growing_seed.setObjectName(u"dspinbox_growing_seed")
+        self.dspinbox_growing_seed.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.dspinbox_growing_seed.setDecimals(0)
         self.dspinbox_growing_seed.setMinimum(20.000000000000000)
         self.dspinbox_growing_seed.setMaximum(300.000000000000000)
