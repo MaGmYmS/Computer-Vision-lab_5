@@ -6,6 +6,7 @@ from sklearn.cluster._hdbscan import hdbscan
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 from joblib import Parallel, delayed
+from multiprocessing import Pool
 
 
 class ImageSegmentation:
@@ -201,28 +202,36 @@ class ImageSegmentation:
 
         return merge_ri_rj.tolist()
 
-    @staticmethod
-    def __merge_region(indexes_merge_regions, regions):
-        (region_i, _) = indexes_merge_regions[0]  # Получаем индексы регионов для слияния
-        all_rj_indexes = [tmp_rj for tmp_ri, tmp_rj in indexes_merge_regions if region_i == tmp_ri]
-        new_merge_region = regions[region_i]  # Начинаем с региона, который будет слит с другими
-        value_region_j_remove_set = set(all_rj_indexes)  # Используем множество для быстрого удаления
+    def __merge_region(self, indexes_merge_regions, regions):
+        # Получаем индексы регионов для слияния
+        merge_indices = np.array(indexes_merge_regions)
 
-        # Перебираем индексы регионов, с которыми будет объединение
-        for region_j in all_rj_indexes[1:]:
-            new_merge_region.extend(regions[region_j])  # Добавляем регион к основному
-            value_region_j_remove_set.remove(region_j)  # Удаляем индекс региона, который будет объединен
+        # Создаем новый регион, в который будем все сливать
+        new_merge_region = [regions[merge_indices[0, 0]]]
 
-        # Создаем новый список регионов, который будет содержать регионы после объединения
-        new_regions = [regions[i] for i in range(len(regions)) if i != region_i and i not in value_region_j_remove_set]
-        new_regions.append(new_merge_region)  # Добавляем объединенный регион
+        # Идем по циклу, добавляем регионы в массив для слияния
+        for i in range(1, len(merge_indices)):
+            new_merge_region.extend(regions[merge_indices[i, 1]])
 
-        return new_regions
+        # Удаляем регионы
+        regions = [region for idx, region in enumerate(regions) if idx not in merge_indices[:, 1]]
+
+        # Добавляем результат в наш массив с регионами
+        regions.append(new_merge_region)
+
+        return regions
 
     @staticmethod
     def __calculate_average_regions(gray_image, regions):
-        # Считаем среднюю яркость наших регионов
-        return np.array([np.mean(np.array([gray_image[j, i] for i, j in region])) for region in regions])
+        avg_regions = []
+        for region in regions:
+            # Преобразуем координаты региона в массив numpy
+            region_array = np.array(region)
+            # Извлекаем значения пикселей из изображения с помощью массива координат региона
+            region_values = gray_image[region_array[:, 1], region_array[:, 0]]
+            # Вычисляем среднее значение для региона и добавляем его в список
+            avg_regions.append(np.mean(region_values))
+        return np.array(avg_regions)
 
     def __region_growing(self, gray_image: np.ndarray, threshold: int, color_coordinate: (int, int) = None):
         # Создаем пустое изображение для хранения сегментированной области
