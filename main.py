@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt
 from MainWindow import Ui_MainWindow
 from ImageSegmentation import ImageSegmentation  # Подставьте ваш модуль здесь
 
+
 class MyMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -38,7 +39,7 @@ class MyMainWindow(QMainWindow):
             self.ui.graph_view_img.fitInView(item, Qt.AspectRatioMode.KeepAspectRatio)
 
     def segment_with_k_means(self):
-        if self.image_segmentation and self.selected_color:
+        if self.image_segmentation:
             num_clusters = int(self.ui.dspinbox_k_means.value())
             self.image_segmentation.compare_segmentations(
                 self.image_segmentation.segment_image_kmeans,
@@ -48,7 +49,7 @@ class MyMainWindow(QMainWindow):
             )
 
     def segment_with_dbscan(self):
-        if self.image_segmentation and self.selected_color:
+        if self.image_segmentation:
             min_samples = int(self.ui.dspinbox_DBSCAN.value())
             self.image_segmentation.compare_segmentations(
                 self.image_segmentation.segment_image_dbscan,
@@ -58,7 +59,7 @@ class MyMainWindow(QMainWindow):
             )
 
     def segment_with_growing_seed(self):
-        if self.image_segmentation and self.selected_color:
+        if self.image_segmentation:
             seed_point = (int(self.ui.dspinbox_growing_seed.value()), int(self.ui.dspinbox_growing_seed.value()))
             threshold = int(self.ui.dspinbox_growing_seed.value())
             self.image_segmentation.compare_segmentations(
@@ -69,7 +70,7 @@ class MyMainWindow(QMainWindow):
             )
 
     def segment_with_region_growing(self):
-        if self.image_segmentation and self.selected_color:
+        if self.image_segmentation:
             threshold = int(self.ui.dspinbox_region_growing.value())
             self.image_segmentation.compare_segmentations(
                 self.image_segmentation.region_growing, threshold=threshold,
@@ -105,11 +106,12 @@ class MyMainWindow(QMainWindow):
         self.ui.graphicsView.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def drop_color_clicked(self):
-        self.selected_color=None
+        self.selected_color = None
         scene = QGraphicsScene()
         scene.addRect(0, 0, 50, 50, Qt.NoPen, QBrush(Qt.NoBrush))
         self.ui.graphicsView.setScene(scene)
         self.ui.graphicsView.fitInView(scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -149,4 +151,3 @@ if __name__ == "__main__":
 # image_segmentation.compare_segmentations(image_segmentation.watershed_segmentation,
 #                                          method_name="Метод Water Shed", title1="Оригинальное изображение",
 #                                          title2="Water Shed RGB", title3="Water Shed CIE Lab")
-

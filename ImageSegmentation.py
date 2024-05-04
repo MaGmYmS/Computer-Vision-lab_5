@@ -15,6 +15,9 @@ class ImageSegmentation:
 
     def __read_image(self, image_path: str):
         # Загружаем изображение
+        parts = image_path.split('/')
+        parts = parts[len(parts) - 2:]
+        image_path = '/'.join(parts)
         image = cv2.imread(image_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         self.RGB_image = image
@@ -76,8 +79,8 @@ class ImageSegmentation:
         _, labels, centers = (cv2.kmeans(data=image_reshaped, K=num_clusters, bestLabels=None,
                                          criteria=criteria, attempts=10, flags=cv2.KMEANS_RANDOM_CENTERS))
 
-        if "target_color" in kwargs.keys():
-            target_color = kwargs["target_color"][0]
+        if kwargs["target_color"] is not None:
+            target_color, _, _ = kwargs["target_color"][0]
             # Найдем индекс центра кластера, наиболее близкого к целевому цвету
             target_center_index = np.argmin(np.linalg.norm(centers - target_color, axis=1))
             # Создаем сегментированное изображение, используя только выбранный центр кластера
@@ -108,7 +111,7 @@ class ImageSegmentation:
         dbscan = hdbscan.HDBSCAN(min_cluster_size=min_samples)
         labels = dbscan.fit_predict(image_scaled)
 
-        if "target_color" in kwargs.keys():
+        if kwargs["target_color"] is not None:
             target_color, x_target_color, y_target_color = kwargs["target_color"]
             # Находим индекс кластера, наиболее близкого к целевому цвету
             # centers = np.array([np.mean(image_scaled[labels == i], axis=0) for i in range(len(set(labels)))])
