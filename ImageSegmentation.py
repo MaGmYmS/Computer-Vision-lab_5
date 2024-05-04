@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 from sklearn.cluster._hdbscan import hdbscan
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
+from joblib import Parallel, delayed
 
 
 class ImageSegmentation:
@@ -55,11 +56,11 @@ class ImageSegmentation:
         segmented_image_rgb = method(image, kwargs)
         end_time = time.time() - start_time
         print(kwargs["title2"], "отработал за", round(end_time / 60, 2))
-
-        start_time = time.time()
-        segmented_image_lab = method(image_lab, kwargs)
-        end_time = time.time() - start_time
-        print(kwargs["title3"], "отработал за", round(end_time / 60, 2))
+        segmented_image_lab = segmented_image_rgb
+        # start_time = time.time()
+        # segmented_image_lab = method(image_lab, kwargs)
+        # end_time = time.time() - start_time
+        # print(kwargs["title3"], "отработал за", round(end_time / 60, 2))
 
         self.__create_plot_images(image, segmented_image_rgb, segmented_image_lab, method_name=kwargs["method_name"],
                                   title1=kwargs["title1"], title2=kwargs["title2"], title3=kwargs["title3"])
@@ -179,9 +180,13 @@ class ImageSegmentation:
     def region_growing(self, image: np.ndarray, kwargs: dict):
         threshold = kwargs.get("threshold", 10)
         color = kwargs.get("color", None)
+        if color is not None:
+            color = [[color[1:]]]
+        else:
+            color = (0, 0)
         # Преобразуем изображение в оттенки серого
         gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        return self.__region_growing(gray_image, threshold, color[1:])
+        return self.__region_growing(gray_image, threshold, color)
 
     @staticmethod
     def __mean(array):
@@ -230,13 +235,7 @@ class ImageSegmentation:
         # Создаем пустое изображение для хранения сегментированной области
         segmented_image = np.zeros_like(gray_image)
         height, width = gray_image.shape
-
-        # Создаем список для хранения областей (регионов)
-        if color_coordinate is not None:
-            regions = [[color_coordinate]]
-        else:
-            color_coordinate = (0, 0)
-            regions = [[color_coordinate]]
+        regions = [[color_coordinate]]
 
         # Перебираем каждый пиксель изображения
         for y in tqdm(range(height), desc="Region growing"):
